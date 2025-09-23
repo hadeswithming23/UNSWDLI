@@ -57,13 +57,11 @@ def load_model():
     models_dict = {}
     try:
         # Core model
-        models_dict['xgb'] = joblib.load("unsw_lgb_model.pkl")
+        models_dict['xgb'] = joblib.load("unsw_rf_full.pkl")
 
         # Preprocessing
         models_dict['scaler'] = joblib.load("unsw_scaler.pkl")
         models_dict['le'] = joblib.load("unsw_encoders.pkl")
-        models_dict['selector'] = joblib.load("unsw_selectkbest_selector.pkl")
-        models_dict['service_counts'] = joblib.load("service_freq_map.pkl")
 
         st.success("✅ All models and preprocessing objects loaded successfully!")
 
@@ -78,7 +76,8 @@ def load_model():
 def get_feature_names():
     """Get the feature names used in training"""
     # Based on the notebook analysis, these are the top features
-    return  ['dur', 'spkts', 'dpkts', 'sbytes', 'dbytes', 'rate', 'sttl', 'dttl', 'sload', 'dload', 'sloss', 'dloss', 'sinpkt', 'dinpkt', 'sjit', 'djit', 'tcprtt', 'synack', 'ackdat', 'smean', 'dmean', 'ct_state_ttl', 'ct_dst_ltm', 'ct_src_dport_ltm', 'ct_dst_sport_ltm', 'ct_dst_src_ltm', 'ct_src_ltm', 'ct_srv_dst', 'proto', 'state']
+    return  ['dur', 'state', 'dpkts', 'sbytes', 'dbytes', 'rate', 'sttl', 'dttl', 'sload', 'dload', 'sinpkt', 'dinpkt', 'tcprtt', 'synack', 'ackdat', 'smean', 'dmean', 'ct_srv_src', 'ct_state_ttl', 'ct_dst_src_ltm', 'ct_srv_dst']
+
 
 
 @st.cache_data
@@ -203,65 +202,78 @@ import pandas as pd
 import joblib
 from sklearn.preprocessing import LabelEncoder
 
-def preprocess_input(df_input, encoders, scaler, selector, label_col):
+def preprocess_input(df_input, encoders, label_col):
     """
-    Preprocess input (DataFrame or dict) for UNSW-NB15 binary classification.
+    Preprocess input (DataFrame or dict) for UNSW-NB15 with full feature set.
 
     Steps:
     1. Convert dict to DataFrame
-    2. Separate label column if exists
-    3. Drop unnecessary columns: 'id', 'attack_cat'
-    4. Encode categorical features using saved LabelEncoders
-    5. Add missing features (from training) with zeros, drop extra columns
-    6. Handle NaN values (default fill with 0)
-    7. Apply SelectKBest feature selector
-    8. Scale features using saved StandardScaler
-    9. Return scaled features and optional labels
+    2. Clean empty strings and invalid values
+    3. Separate label column if exists
+    4. Drop unnecessary columns: 'id', 'attack_cat'
+    5. Encode categorical features using saved LabelEncoders
+    6. Add missing features with zeros, drop extras
+    7. Handle NA values and ensure numeric output
+    8. Return aligned features and optional labels
     """
 
     import pandas as pd
+    import numpy as np
 
-    # Convert dict to DataFrame
+    # --- Step 1: Convert dict to DataFrame ---
     if isinstance(df_input, dict):
         df_input = pd.DataFrame([df_input])
 
-    # Separate label if exists
+    # --- Step 2: Clean empty strings and invalid values ---
+    # Replace empty strings or whitespace with NaN
+    df_input = df_input.replace(r'^\s*$', np.nan, regex=True)
+
+    # --- Step 3: Separate label if exists ---
     y_true = None
     if label_col in df_input.columns:
         y_true = df_input[label_col].apply(lambda x: 0 if x == 0 else 1)
         df_input = df_input.drop(columns=[label_col])
 
-    # Drop unnecessary columns
-    drop_cols = ['id', 'attack_cat']
-    df_input = df_input.drop(columns=[col for col in drop_cols if col in df_input.columns], errors='ignore')
+    # --- Step 4: Drop unnecessary columns ---
+    drop_cols = ["id", "attack_cat"]
+    df_input = df_input.drop(columns=[c for c in drop_cols if c in df_input.columns], errors="ignore")
 
-    # Encode categorical columns
-    cat_cols = ['proto', 'service', 'state']
+    # --- Step 5: Encode categorical features ---
+    cat_cols = ["proto", "service", "state"]
     for col in cat_cols:
         if col in df_input.columns and col in encoders:
             le = encoders[col]
-            df_input[col] = df_input[col].map(lambda s: le.transform([s])[0] if s in le.classes_ else -1)
+            # Handle unknown categories and ensure numeric output
+            df_input[col] = df_input[col].apply(
+                lambda s: le.transform([s])[0] if isinstance(s, str) and s in le.classes_ else -1
+            ).astype(float)
 
-    # --- Add missing features with zeros and drop extras ---
+    # --- Step 6: Add missing features with 0 & drop extras ---
     for col in UNSW_SELECTED_COLUMNS:
         if col not in df_input.columns:
             df_input[col] = 0
-    df_input = df_input[[col for col in UNSW_SELECTED_COLUMNS]]  # enforce column order
+    df_input = df_input[UNSW_SELECTED_COLUMNS]  # Enforce column order
 
-    # --- Handle NaN values ---
-    df_input = df_input.fillna(0)  # default: replace NaN with 0
+    # --- Step 7: Handle NA values and ensure numeric ---
+    df_input = df_input.fillna(0)
+    # Convert all columns to float to ensure numeric output
+    try:
+        df_input = df_input.astype(float)
+    except ValueError as e:
+        print(f"Non-numeric values found in columns: {e}")
+        for col in df_input.columns:
+            if df_input[col].dtype not in [np.float64, np.int64]:
+                print(f"Column {col} has non-numeric values:\n", df_input[col].unique())
+        raise
 
-    # Apply SelectKBest
-    X_selected = selector.transform(df_input.values)
+    # --- Step 8: Validate output ---
+    X = df_input.values
+    print("Final X shape:", X.shape, "dtype:", X.dtype)  # Debug
+    if not np.issubdtype(X.dtype, np.number):
+        raise ValueError("Output contains non-numeric values")
 
-    # Convert to DataFrame and align with selected features
-    selected_features = [UNSW_SELECTED_COLUMNS[i] for i in selector.get_support(indices=True)]
-    df_aligned = pd.DataFrame(X_selected, columns=selected_features)
+    return X, y_true
 
-    # Scale features
-    X_scaled = scaler.transform(df_aligned)
-
-    return X_scaled, y_true
 
 from sklearn.metrics import accuracy_score
 import pandas as pd
@@ -573,7 +585,7 @@ def batch_upload_page(models):
         # -----------------------
         # 4) Feature alignment
         # -----------------------
-        expected_features = get_feature_names()
+        expected_features = UNSW_SELECTED_COLUMNS
 
         if dataset_type == "UNSW":
             # Preprocess UNSW-NB15 dataset only
@@ -632,15 +644,11 @@ def batch_upload_page(models):
                 orig_subset = df_orig.iloc[start_idx:end_idx+1].copy()
 
             # Scale features
-            scaler = models["scaler"]
             le = models["le"]
-            selector = models["selector"]
             try:
                 X_scaled, _ = preprocess_input(
                     subset,
                     encoders= le,
-                    scaler=scaler,
-                    selector=selector,
                     label_col=label_col
                 )
             except Exception as e:
