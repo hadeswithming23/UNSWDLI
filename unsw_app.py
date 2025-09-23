@@ -60,9 +60,6 @@ def load_model():
         models_dict['xgb'] = joblib.load("unsw_rf_full.pkl")
 
         # Preprocessing
-        models_dict['scaler'] = joblib.load("unsw_scaler.pkl")
-        models_dict['le'] = joblib.load("unsw_encoders.pkl")
-
         st.success("✅ All models and preprocessing objects loaded successfully!")
 
     except Exception as e:
