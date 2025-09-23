@@ -58,6 +58,7 @@ def load_model():
     try:
         # Core model
         models_dict['xgb'] = joblib.load("unsw_rf_full.pkl")
+        models_dict["encoders"] = joblib.load("unsw_encoders.pkl")
 
         # Preprocessing
         st.success("✅ All models and preprocessing objects loaded successfully!")
@@ -641,11 +642,12 @@ def batch_upload_page(models):
                 orig_subset = df_orig.iloc[start_idx:end_idx+1].copy()
 
             # Scale features
-            le = models["le"]
+            encoders = models["encoders"]
+
             try:
                 X_scaled, _ = preprocess_input(
                     subset,
-                    encoders= le,
+                    encoders= encoders,
                     label_col=label_col
                 )
             except Exception as e:
