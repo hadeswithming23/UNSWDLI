@@ -77,3 +77,6 @@ pip install -r requirements.txt
 ```bash
 streamlit run unsw_app.py
 ```
+
+Then open your browser and go to:
+[http://localhost:8501](http://localhost:8501)
