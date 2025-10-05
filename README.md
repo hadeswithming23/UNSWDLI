@@ -59,3 +59,21 @@ Each model is evaluated using:
 - Includes confusion matrices and bar charts for clarity
 
 ---
+
+## 🚀 Quick Start
+
+### **1. Clone the Repository**
+```bash
+git clone https://github.com/hadeswithming23/UNSWDLI.git
+cd UNSWDLI
+```
+
+### **2. Install Dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+### **3. Run the Streamlit App**
+```bash
+streamlit run unsw_app.py
+```
