@@ -57,8 +57,9 @@ def load_model():
     models_dict = {}
     try:
         # Core model
-        models_dict['xgb'] = joblib.load("unsw_rf_full.pkl")
-        models_dict["encoders"] = joblib.load("unsw_encoders.pkl")
+        models_dict['xgb'] = joblib.load("models/unsw_xgboost.pkl")
+        models_dict["encoders"] = joblib.load("models/unsw_encoders.pkl")
+        models_dict["scaler"] = joblib.load("models/unsw_scaler.pkl")
 
         # Preprocessing
         st.success("✅ All models and preprocessing objects loaded successfully!")
@@ -200,9 +201,12 @@ import pandas as pd
 import joblib
 from sklearn.preprocessing import LabelEncoder
 
-def preprocess_input(df_input, encoders, label_col):
+import pandas as pd
+import numpy as np
+
+def preprocess_input(df_input, encoders, scaler, label_col):
     """
-    Preprocess input (DataFrame or dict) for UNSW-NB15 with full feature set.
+    Preprocess input (DataFrame or dict) for UNSW-NB15 dataset tailored for XGBoost.
 
     Steps:
     1. Convert dict to DataFrame
@@ -210,20 +214,17 @@ def preprocess_input(df_input, encoders, label_col):
     3. Separate label column if exists
     4. Drop unnecessary columns: 'id', 'attack_cat'
     5. Encode categorical features using saved LabelEncoders
-    6. Add missing features with zeros, drop extras
+    6. Add missing features with zeros, drop extras, and align with training columns
     7. Handle NA values and ensure numeric output
-    8. Return aligned features and optional labels
+    8. Apply StandardScaler to match training pipeline
+    9. Return scaled features and optional labels
     """
-
-    import pandas as pd
-    import numpy as np
 
     # --- Step 1: Convert dict to DataFrame ---
     if isinstance(df_input, dict):
         df_input = pd.DataFrame([df_input])
 
     # --- Step 2: Clean empty strings and invalid values ---
-    # Replace empty strings or whitespace with NaN
     df_input = df_input.replace(r'^\s*$', np.nan, regex=True)
 
     # --- Step 3: Separate label if exists ---
@@ -233,15 +234,15 @@ def preprocess_input(df_input, encoders, label_col):
         df_input = df_input.drop(columns=[label_col])
 
     # --- Step 4: Drop unnecessary columns ---
-    drop_cols = ["id", "attack_cat"]
-    df_input = df_input.drop(columns=[c for c in drop_cols if c in df_input.columns], errors="ignore")
+    drop_cols = ['id', 'attack_cat']
+    df_input = df_input.drop(columns=[c for c in drop_cols if c in df_input.columns], errors='ignore')
 
     # --- Step 5: Encode categorical features ---
-    cat_cols = ["proto", "service", "state"]
+    cat_cols = ['proto', 'service', 'state']
     for col in cat_cols:
         if col in df_input.columns and col in encoders:
             le = encoders[col]
-            # Handle unknown categories and ensure numeric output
+            # Handle unknown categories by assigning -1
             df_input[col] = df_input[col].apply(
                 lambda s: le.transform([s])[0] if isinstance(s, str) and s in le.classes_ else -1
             ).astype(float)
@@ -254,19 +255,21 @@ def preprocess_input(df_input, encoders, label_col):
 
     # --- Step 7: Handle NA values and ensure numeric ---
     df_input = df_input.fillna(0)
-    # Convert all columns to float to ensure numeric output
     try:
         df_input = df_input.astype(float)
     except ValueError as e:
         print(f"Non-numeric values found in columns: {e}")
         for col in df_input.columns:
             if df_input[col].dtype not in [np.float64, np.int64]:
-                print(f"Column {col} has non-numeric values:\n", df_input[col].unique())
+                print(f"Column {col} has non-numeric values:\n{df_input[col].unique()}")
         raise
 
-    # --- Step 8: Validate output ---
+    # --- Step 8: Apply StandardScaler ---
+    df_input = pd.DataFrame(scaler.transform(df_input), columns=UNSW_SELECTED_COLUMNS)
+
+    # --- Step 9: Validate output ---
     X = df_input.values
-    print("Final X shape:", X.shape, "dtype:", X.dtype)  # Debug
+    print("Final X shape:", X.shape, "dtype:", X.dtype)
     if not np.issubdtype(X.dtype, np.number):
         raise ValueError("Output contains non-numeric values")
 
@@ -643,11 +646,13 @@ def batch_upload_page(models):
 
             # Scale features
             encoders = models["encoders"]
+            scaler = models["scaler"]
 
             try:
                 X_scaled, _ = preprocess_input(
                     subset,
                     encoders= encoders,
+                    scaler=scaler,
                     label_col=label_col
                 )
             except Exception as e:
