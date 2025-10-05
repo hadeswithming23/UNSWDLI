@@ -1,9 +1,9 @@
 # 👩‍🔬 Authors & Contributors
--Dr. Seyedmostafa Safavi
--Chee Zhung Ong
--Sze Shun Low
--Wenn Yeow Russell Chan
--Zhi Hong Yip
+- Dr. Seyedmostafa Safavi
+- Chee Zhung Ong
+- Sze Shun Low
+- Wenn Yeow Russell Chan
+- Zhi Hong Yip
 
 ---
 
