@@ -1,65 +1,61 @@
+# 🧠 A Lightweight Random Forest Model for Intrusion Detection using UNSW-NB15
 
-# A Lightweight RF Model for Intrusion Detection using UNSW-NB15
+This project presents a **lightweight Random Forest (RF)** model for **network intrusion detection**, designed to balance **high detection accuracy** with **low computational cost**. The model performs efficiently even in **real-time** and **resource-constrained** environments, making it suitable for modern cybersecurity systems.
 
-Our work introduces a lightweight Random Forest (RF) model designed for efficient network intrusion detection with minimal computational overhead. The model achieves high accuracy and F1-score while remaining suitable for real-time and resource-constrained environments.
+---
 
-## Workflow Steps
+## ⚙️ Workflow Overview
 
-1. Load and Prepare Data
+### **1. Load and Prepare Data**
+- Loads datasets:  
+  - `UNSW_NB15_training-set.csv`  
+  - `UNSW_NB15_testing-set.csv`
+- Removes unnecessary columns: `id`, `attack_cat`
+- Encodes labels:  
+  - `0` → **Normal**  
+  - `1` → **Attack**
 
-Loads training and testing sets (UNSW_NB15_training-set.csv, UNSW_NB15_testing-set.csv).
+---
 
-Drops unnecessary columns (id, attack_cat).
+### **2. Encode and Scale Features**
+- Categorical features encoded using **LabelEncoder**  
+- Numerical features standardized using **StandardScaler**
 
-Encodes labels:
+---
 
-0 → Normal
+### **3. Handle Class Imbalance**
+- Applies **SMOTE (Synthetic Minority Over-sampling Technique)**  
+  to balance *Normal* and *Attack* samples.
 
-1 → Attack
+---
 
-2. Encode and Scale Features
+### **4. Model Training and Hyperparameter Tuning**
+- Uses **GridSearchCV** for optimal hyperparameter selection  
+- Trains each model on the SMOTE-balanced dataset  
+- Includes baseline and tuned models for comparison
 
-Categorical columns encoded using LabelEncoder.
+---
 
-Numerical features scaled with StandardScaler.
+### **5. Evaluation Metrics**
+Each model is evaluated using:
+- **Accuracy**
+- **Precision**
+- **Recall**
+- **F1-Score**
 
-3. Handle Class Imbalance
+✅ **Confusion Matrices** are plotted for visual comparison.  
+✅ A **combined bar chart** summarizes all test metrics.
 
-Applies SMOTE to balance normal vs. attack samples.
+---
 
-4. Model Training and Hyperparameter Tuning
+### **6. Model Saving**
+- Trained models saved in the `/models` directory as `.pkl` files  
+- Encoders and scalers stored for easy reuse during deployment
 
-Uses GridSearchCV to find optimal hyperparameters.
+---
 
-Trains each model on the full SMOTE-balanced dataset.
+### **7. Visualization**
+- Generates visual comparisons of model performance  
+- Includes confusion matrices and bar charts for clarity
 
-5. Evaluation Metrics
-
-Each model is evaluated based on Accuracy, Precision, Recall and F1-score
-
-Confusion matrices are visualized for each model.
-
-6. Model Saving
-
-Best models saved in /models as .pkl files.
-
-Encoders and scaler saved for later reuse.
-
-7. Visualization
-
-Combined bar chart comparing all models on test metrics.
-
-
-### Quick Start
-1. Clone the Repository
-git clone https://github.com/hadeswithming23/UNSWDLI.git
-
-cd UNSWDLI
-
-2. Install Dependencies
-pip install -r requirements.txt
-
-3. Run the Streamlit App
-streamlit run unsw_app.py
-
-Then open your browser at http://localhost:8501 to interact with the model.
+---
