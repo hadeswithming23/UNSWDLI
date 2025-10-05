@@ -1,6 +1,17 @@
+# 👩‍🔬 Authors & Contributors
+-Dr. Seyedmostafa Safavi
+-Chee Zhung Ong
+-Sze Shun Low
+-Wenn Yeow Russell Chan
+-Zhi Hong Yip
+
+---
+
 # 🧠 A Lightweight Random Forest Model for Intrusion Detection using UNSW-NB15
 
 This project presents a **lightweight Random Forest (RF)** model for **network intrusion detection**, designed to balance **high detection accuracy** with **low computational cost**. The model performs efficiently even in **real-time** and **resource-constrained** environments, making it suitable for modern cybersecurity systems.
+
+DOI: [XXXXXXX]
 
 ---
 
